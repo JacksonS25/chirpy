@@ -5,40 +5,90 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/JacksonS25/chirpy/internal/auth"
+	"github.com/JacksonS25/chirpy/internal/database"
+
 	"github.com/google/uuid"
 )
 
-func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
-	type parameters struct {
-		Email string `json:"email"`
-	}
-	type returnUser struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
-	}
+type user struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+}
 
+type userParameters struct {
+	Password string `json:"password"`
+	Email    string `json:"email"`
+}
+
+func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	params := parameters{}
+	params := userParameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
 		return
 	}
 
-	user, err := cfg.db.CreateUser(r.Context(), params.Email)
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't hash password", err)
+		return
+	}
+
+	retrievedUser, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
+		Email:          params.Email,
+		HashedPassword: hashedPassword,
+	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create user", err)
 		return
 	}
 
-	createdUser := returnUser{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
+	createdUser := user{
+		ID:        retrievedUser.ID,
+		CreatedAt: retrievedUser.CreatedAt,
+		UpdatedAt: retrievedUser.UpdatedAt,
+		Email:     retrievedUser.Email,
 	}
 
 	respondWithJSON(w, http.StatusCreated, createdUser)
+}
+
+func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	params := userParameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	retrievedUser, err := cfg.db.GetUser(r.Context(), params.Email)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid Email or Password", err)
+		return
+	}
+
+	valid, err := auth.CheckPasswordHash(params.Password, retrievedUser.HashedPassword)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't Validate", err)
+		return
+	}
+
+	if !valid {
+		respondWithError(w, http.StatusUnauthorized, "Invalid Email or Password", err)
+		return
+	}
+
+	returnUser := user{
+		ID:        retrievedUser.ID,
+		CreatedAt: retrievedUser.CreatedAt,
+		UpdatedAt: retrievedUser.UpdatedAt,
+		Email:     retrievedUser.Email,
+	}
+
+	respondWithJSON(w, http.StatusOK, returnUser)
 }
