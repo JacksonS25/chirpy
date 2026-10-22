@@ -11,17 +11,18 @@ import (
 	"github.com/JacksonS25/chirpy/internal/database"
 )
 
-func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
+type chirp struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string    `json:"body"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
+func (cfg *apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body   string    `json:"body"`
 		UserID uuid.UUID `json:"user_id"`
-	}
-	type returnVals struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Body      string    `json:"body"`
-		UserID    uuid.UUID `json:"user_id"`
 	}
 
 	params := parameters{}
@@ -40,7 +41,7 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 
 	params.Body = profanityCleanse(params.Body)
 
-	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
+	createdChirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body:   params.Body,
 		UserID: params.UserID,
 	})
@@ -49,15 +50,15 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdChirp := returnVals{
-		ID:        chirp.ID,
-		CreatedAt: chirp.CreatedAt,
-		UpdatedAt: chirp.UpdatedAt,
-		Body:      chirp.Body,
-		UserID:    chirp.UserID,
+	filteredChirp := chirp{
+		ID:        createdChirp.ID,
+		CreatedAt: createdChirp.CreatedAt,
+		UpdatedAt: createdChirp.UpdatedAt,
+		Body:      createdChirp.Body,
+		UserID:    createdChirp.UserID,
 	}
 
-	respondWithJSON(w, http.StatusCreated, createdChirp)
+	respondWithJSON(w, http.StatusCreated, filteredChirp)
 }
 
 func profanityCleanse(s string) string {
@@ -70,4 +71,26 @@ func profanityCleanse(s string) string {
 		}
 	}
 	return strings.Join(words, " ")
+}
+
+func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
+	chirps, err := cfg.db.GetAllChirps(r.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get chirps", err)
+		return
+	}
+
+	retrievedChirps := []chirp{}
+
+	for _, c := range chirps {
+		retrievedChirps = append(retrievedChirps, chirp{
+			ID:        c.ID,
+			CreatedAt: c.CreatedAt,
+			UpdatedAt: c.UpdatedAt,
+			Body:      c.Body,
+			UserID:    c.UserID,
+		})
+	}
+
+	respondWithJSON(w, http.StatusOK, retrievedChirps)
 }
