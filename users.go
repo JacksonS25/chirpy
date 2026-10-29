@@ -114,3 +114,50 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJSON(w, http.StatusOK, returnUser)
 }
+
+func (cfg *apiConfig) handlerUpdate(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized", err)
+		return
+	}
+
+	userId, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized", err)
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := userParameters{}
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	hashed_password, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't Hash Password", err)
+		return
+	}
+
+	updatedUser, err := cfg.db.UpdateUserByID(r.Context(), database.UpdateUserByIDParams{
+		Email:          params.Email,
+		HashedPassword: hashed_password,
+		ID:             userId,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't Update User", err)
+		return
+	}
+
+	returnUser := user{
+		ID:        updatedUser.ID,
+		CreatedAt: updatedUser.CreatedAt,
+		UpdatedAt: updatedUser.UpdatedAt,
+		Email:     updatedUser.Email,
+	}
+
+	respondWithJSON(w, http.StatusOK, returnUser)
+}
