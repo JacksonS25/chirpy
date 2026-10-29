@@ -18,6 +18,7 @@ type user struct {
 	Email        string    `json:"email"`
 	Token        string    `json:"token"`
 	RefreshToken string    `json:"refresh_token"`
+	IsChirpyRed  bool      `json:"is_chirpy_red"`
 }
 
 type userParameters struct {
@@ -50,10 +51,11 @@ func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createdUser := user{
-		ID:        retrievedUser.ID,
-		CreatedAt: retrievedUser.CreatedAt,
-		UpdatedAt: retrievedUser.UpdatedAt,
-		Email:     retrievedUser.Email,
+		ID:          retrievedUser.ID,
+		CreatedAt:   retrievedUser.CreatedAt,
+		UpdatedAt:   retrievedUser.UpdatedAt,
+		Email:       retrievedUser.Email,
+		IsChirpyRed: retrievedUser.IsChirpyRed.Bool,
 	}
 
 	respondWithJSON(w, http.StatusCreated, createdUser)
@@ -110,6 +112,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		Email:        retrievedUser.Email,
 		Token:        token,
 		RefreshToken: refresh_token,
+		IsChirpyRed:  retrievedUser.IsChirpyRed.Bool,
 	}
 
 	respondWithJSON(w, http.StatusOK, returnUser)
@@ -153,10 +156,11 @@ func (cfg *apiConfig) handlerUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	returnUser := user{
-		ID:        updatedUser.ID,
-		CreatedAt: updatedUser.CreatedAt,
-		UpdatedAt: updatedUser.UpdatedAt,
-		Email:     updatedUser.Email,
+		ID:          updatedUser.ID,
+		CreatedAt:   updatedUser.CreatedAt,
+		UpdatedAt:   updatedUser.UpdatedAt,
+		Email:       updatedUser.Email,
+		IsChirpyRed: updatedUser.IsChirpyRed.Bool,
 	}
 
 	respondWithJSON(w, http.StatusOK, returnUser)
