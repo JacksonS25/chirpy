@@ -12,17 +12,17 @@ import (
 )
 
 type user struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-	Token     string    `json:"token"`
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Email        string    `json:"email"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
 }
 
 type userParameters struct {
-	Password         string `json:"password"`
-	Email            string `json:"email"`
-	ExpiresInSeconds int    `json:"expires_in_seconds"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 
 func (cfg *apiConfig) handlerUsers(w http.ResponseWriter, r *http.Request) {
@@ -85,24 +85,31 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if params.ExpiresInSeconds == 0 || params.ExpiresInSeconds > 3600 {
-		params.ExpiresInSeconds = 3600
-	}
-
-	duration := time.Duration(params.ExpiresInSeconds) * time.Second
-
-	token, err := auth.MakeJWT(retrievedUser.ID, cfg.secret, duration)
+	token, err := auth.MakeJWT(retrievedUser.ID, cfg.secret, 1*time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to Create Token", err)
 		return
 	}
 
+	refresh_token := auth.MakeRefreshToken()
+
+	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     refresh_token,
+		UserID:    retrievedUser.ID,
+		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create refresh token", err)
+		return
+	}
+
 	returnUser := user{
-		ID:        retrievedUser.ID,
-		CreatedAt: retrievedUser.CreatedAt,
-		UpdatedAt: retrievedUser.UpdatedAt,
-		Email:     retrievedUser.Email,
-		Token:     token,
+		ID:           retrievedUser.ID,
+		CreatedAt:    retrievedUser.CreatedAt,
+		UpdatedAt:    retrievedUser.UpdatedAt,
+		Email:        retrievedUser.Email,
+		Token:        token,
+		RefreshToken: refresh_token,
 	}
 
 	respondWithJSON(w, http.StatusOK, returnUser)
