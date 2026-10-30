@@ -86,7 +86,20 @@ func profanityCleanse(s string) string {
 }
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
-	chirps, err := cfg.db.GetAllChirps(r.Context())
+	author_id := r.URL.Query().Get("author_id")
+	author_uuid, err := uuid.Parse(author_id)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't parse author id", err)
+		return
+	}
+
+	var chirps []database.Chirp
+	if author_id != "" {
+		chirps, err = cfg.db.GetAuthorsChirps(r.Context(), author_uuid)
+	} else {
+		chirps, err = cfg.db.GetAllChirps(r.Context())
+	}
+
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't get chirps", err)
 		return
