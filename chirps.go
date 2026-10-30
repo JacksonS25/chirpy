@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -87,22 +88,26 @@ func profanityCleanse(s string) string {
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	author_id := r.URL.Query().Get("author_id")
-	author_uuid, err := uuid.Parse(author_id)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't parse author id", err)
-		return
-	}
-
+	var err error
 	var chirps []database.Chirp
 	if author_id != "" {
+		author_uuid, err := uuid.Parse(author_id)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Couldn't parse author id", err)
+			return
+		}
 		chirps, err = cfg.db.GetAuthorsChirps(r.Context(), author_uuid)
 	} else {
 		chirps, err = cfg.db.GetAllChirps(r.Context())
 	}
-
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't get chirps", err)
 		return
+	}
+
+	sortQuery := r.URL.Query().Get("sort")
+	if sortQuery == "desc" {
+		sort.Slice(chirps, func(i, j int) bool { return chirps[i].CreatedAt.After(chirps[j].CreatedAt) })
 	}
 
 	retrievedChirps := []chirp{}
