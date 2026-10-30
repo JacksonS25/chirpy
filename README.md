@@ -164,9 +164,23 @@ curl -X POST http://localhost:8080/api/login \
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `POST` | `/api/chirps` | Bearer JWT | Post a new chirp (max 140 chars) |
-| `GET` | `/api/chirps` | None | Get all chirps (optional `?author_id=`) |
+| `GET` | `/api/chirps` | None | Get all chirps (supports `?author_id=` and `?sort=desc`) |
 | `GET` | `/api/chirps/{chirpID}` | None | Get a single chirp by ID |
 | `DELETE` | `/api/chirps/{chirpID}` | Bearer JWT | Delete your own chirp |
+
+#### `GET /api/chirps`
+
+Returns a list of chirps. Supports optional query parameters for filtering and ordering:
+- `author_id` (optional): Filter chirps by a specific author's UUID.
+- `sort` (optional): Set to `desc` to sort chirps from newest to oldest. Defaults to ascending order (`asc` / oldest to newest).
+
+```bash
+# Get all chirps sorted newest first
+curl http://localhost:8080/api/chirps?sort=desc
+
+# Get all chirps by a specific author sorted newest first
+curl "http://localhost:8080/api/chirps?author_id=<user_uuid>&sort=desc"
+```
 
 #### `POST /api/chirps`
 
